@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calendar Engine - מחפש זמנים פנויים</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1>🗓️ מנוע לוח השנה החכם</h1>
+            <p>מצא זמנים פנויים לפגישה בקלות</p>
+            <div class="header-actions">
+                <button class="btn btn-secondary btn-header" onclick="showUpcomingMeetings()">
+                    📋 הצג פגישות מהיום
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Step 1: בחירת משתתפים -->
+            <section class="section active" id="step-1">
+                <div class="section-header">
+                    <h2>שלב 1️⃣: בחר משתתפים</h2>
+                </div>
+
+                <!-- משתתפים עם כפתורי בחירה -->
+                <div class="form-group">
+                    <label>בחר משתתפים (לחיצה 1 = חובה, לחיצה 2 = אופציונלי):</label>
+                    <div class="participants-grid" id="participants-container">
+                        <!-- יוצא דינמי - כפתורים למשתתפים -->
+                    </div>
+                </div>
+
+                <!-- סיכום בחירה -->
+                <div class="selection-summary">
+                    👥 בחר לפחות משתתף חובה אחד (ניתן להוסיף אופציונליים בלחיצה שנייה)
+                </div>
+
+                <!-- כפתור המשך -->
+                <button class="btn btn-primary" onclick="goToStep(2)">
+                    הבא ➡️
+                </button>
+            </section>
+
+            <!-- Step 2: בחירת משך ותאריך -->
+            <section class="section" id="step-2">
+                <div class="section-header">
+                    <h2>שלב 2️⃣: בחר משך ותאריך</h2>
+                </div>
+
+                <div class="form-group">
+                    <label for="event-duration-minutes">משך הפגישה (בדקות):</label>
+                    <input type="number" id="event-duration-minutes" name="event-duration-minutes" value="60" min="15" max="480" step="15">
+                </div>
+
+                <div class="form-group">
+                    <label for="target-date">בחר תאריך:</label>
+                    <input type="date" id="target-date" name="target-date" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="buffer-minutes">דקות חיץ בין פגישות:</label>
+                    <input type="number" id="buffer-minutes" name="buffer-minutes" value="15" min="0" max="60">
+                </div>
+
+                <!-- כפתורים -->
+                <div class="button-group">
+                    <button class="btn btn-secondary" onclick="goToStep(1)">
+                        ⬅️ חזור
+                    </button>
+                    <button class="btn btn-primary" onclick="searchAvailableSlots()">
+                        הצג אפשרויות זמן 🔍
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 3: תוצאות -->
+            <section class="section" id="step-3">
+                <div class="section-header">
+                    <h2>שלב 3️⃣: בחר זמן פגישה</h2>
+                </div>
+
+                <div class="deep-work-info">
+                    ℹ️ <strong>עמוק-עבודה</strong> הוא ציון בין 0 ל-1 שמראה כמה הזמן "נקי" מהפרעות (גבוה יותר = זמן טוב יותר לריכוז).
+                </div>
+
+                <p id="suggested-slot-message" class="suggested-slot-message">⏳ מחשב אפשרויות זמן...</p>
+
+                <div id="slots-container" class="slots-grid">
+                    <!-- יוצא דינמי - כל אפשרויות הזמן -->
+                </div>
+
+                <div id="reschedule-section" class="reschedule-section hidden">
+                    <h3>לא נמצאו זמנים פנויים</h3>
+                    <p>ניתן לנסות להזיז פגישות חוסמות לזמן אחר כדי לפנות מקום לפגישה החדשה.</p>
+                    <button class="btn btn-warning" type="button" onclick="suggestMeetingMoves()">
+                        🔄 הצע הזזות פגישות
+                    </button>
+                    <div id="reschedule-suggestions" class="reschedule-suggestions"></div>
+                </div>
+
+                <!-- סיכום הבחירה -->
+                <div id="selected-slot-summary" class="selected-slot-summary hidden">
+                    <h3>פגישה שנבחרה:</h3>
+                    <p>תאריך: <span id="summary-date"></span></p>
+                    <p>שעה: <span id="summary-time"></span></p>
+                    <p>משתתפים: <span id="summary-participants"></span></p>
+                    <p>עמוק-עבודה: <span id="summary-deep-work"></span></p>
+                </div>
+
+                <div class="form-group">
+                    <label for="event-subject">שם הפגישה:</label>
+                    <input type="text" id="event-subject" name="event-subject" value="פגישה" maxlength="100">
+                </div>
+
+                <!-- כפתור אישור -->
+                <div class="button-group">
+                    <button class="btn btn-secondary" onclick="goToStep(2)">
+                        ⬅️ חזור
+                    </button>
+                    <button class="btn btn-success" id="confirm-btn" onclick="bookMeeting()" disabled>
+                        אשר פגישה ✅
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 4: הצלחה -->
+            <section class="section" id="step-4">
+                <div class="success-message">
+                    <div class="success-icon">✅</div>
+                    <h2>הפגישה נוספה בהצלחה!</h2>
+                    <div id="success-details"></div>
+                    <button class="btn btn-primary" onclick="resetForm()">
+                        🔄 חיפוש חדש
+                    </button>
+                </div>
+            </section>
+
+            <!-- Step 5: פגישות עתידיות -->
+            <section class="section" id="step-5">
+                <div class="section-header">
+                    <h2>שלב 5️⃣: פגישות מהיום ואילך</h2>
+                </div>
+
+                <div id="upcoming-meetings-container" class="upcoming-meetings-list">
+                    <!-- יוצא דינמי -->
+                </div>
+
+                <div class="button-group">
+                    <button class="btn btn-secondary" onclick="goToStep(1)">
+                        ⬅️ חזור למסך הראשי
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Global Smart Calendar Engine © 2024</p>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
